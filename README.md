@@ -31,8 +31,7 @@ A simple and efficient file sharing web application built with Nuxt.js that allo
    ```
 
 2. Configure the file storage path:
-   - Open `nuxt.config.ts`
-   - Update the `fileStorage.mount` property with your desired storage path
+   - Add storage path to `UPLOAD_DIR` variable in `.env`
 
 3. Start the development server:
    ```bash
