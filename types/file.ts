@@ -5,6 +5,9 @@ export interface FileNode {
   icon?: string
   children?: FileNode[]
   leaf?: boolean
+  modifiedDate: string | Date
+  size?: number
+  type?: 'file' | 'folder'
 }
 
 export interface UploadResponse {

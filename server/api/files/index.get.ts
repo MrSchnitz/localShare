@@ -2,6 +2,8 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import type { TreeNode } from "primevue/treenode";
 
+const IGNORED_FILES = [".DS_Store", "__MACOSX"];
+
 interface FileInfo {
   name: string;
   path: string;
@@ -14,7 +16,7 @@ async function scanAndMapFolder(
   folderPath: string,
   parentKey = "0"
 ): Promise<TreeNode> {
-  const base = useRuntimeConfig().public.fileStorage.mount;
+  const base = process.env.UPLOAD_PATH || "uploads";
   const folderName = path.basename(folderPath);
 
   const node: TreeNode = {
@@ -22,7 +24,7 @@ async function scanAndMapFolder(
     label: folderName,
     data: folderPath.replace(base, ""),
     type: "folder",
-    icon: "pi pi-fw pi-inbox", // Default folder icon
+    icon: "pi pi-fw pi-folder", // Default folder icon
     children: [],
     selectable: true,
   };
@@ -33,6 +35,11 @@ async function scanAndMapFolder(
     for (const [i, item] of Object.entries(items)) {
       const fullPath = path.join(folderPath, item.name);
       const itemKey = `${parentKey}-${i}`;
+
+      // Skip ignored files and hidden files
+      if (IGNORED_FILES.includes(item.name)) {
+        continue;
+      }
 
       if (item.isDirectory()) {
         // Recursively process subdirectories
@@ -64,7 +71,7 @@ async function scanAndMapFolder(
 }
 
 export default defineEventHandler((event) => {
-  const location = useRuntimeConfig().public.fileStorage.mount;
+  const location = process.env.UPLOAD_PATH || "uploads";
 
   return scanAndMapFolder(location);
 });
