@@ -488,6 +488,12 @@ const handleEmptyStateClick = () => {
   border: 2px dashed #007aff;
 }
 
+.list .navigation-header {
+  min-height: auto;
+  justify-content: flex-start;
+  margin-bottom: 0;
+}
+
 .back-button {
   padding: 0.5rem !important;
   width: 2.5rem !important;
@@ -501,8 +507,5 @@ const handleEmptyStateClick = () => {
 .current-path {
   color: #666;
   font-size: 14px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 </style>

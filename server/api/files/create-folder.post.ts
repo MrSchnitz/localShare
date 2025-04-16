@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
   const { folderPath } = await readBody<{
     folderPath: string;
   }>(event);
-  const base = process.env.UPLOAD_PATH || "uploads";
+  const base = process.env.UPLOAD_DIR || "uploads";
   const fullPath = `${base}${folderPath}`;
 
     await fs.mkdir(fullPath, { recursive: true });

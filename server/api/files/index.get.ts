@@ -4,19 +4,11 @@ import type { TreeNode } from "primevue/treenode";
 
 const IGNORED_FILES = [".DS_Store", "__MACOSX"];
 
-interface FileInfo {
-  name: string;
-  path: string;
-  size: number;
-  type: "file" | "folder";
-  lastModified: Date;
-}
-
 async function scanAndMapFolder(
   folderPath: string,
   parentKey = "0"
 ): Promise<TreeNode> {
-  const base = process.env.UPLOAD_PATH || "uploads";
+  const base = process.env.UPLOAD_DIR || "uploads";
   const folderName = path.basename(folderPath);
 
   const node: TreeNode = {
@@ -71,7 +63,7 @@ async function scanAndMapFolder(
 }
 
 export default defineEventHandler((event) => {
-  const location = process.env.UPLOAD_PATH || "uploads";
+  const location = process.env.UPLOAD_DIR || "uploads";
 
   return scanAndMapFolder(location);
 });

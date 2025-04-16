@@ -2,7 +2,7 @@ import { createReadStream } from "fs";
 import { H3Event, sendStream } from "h3";
 
 export default defineEventHandler(async (event: H3Event) => {
-  const base = process.env.UPLOAD_PATH || "uploads";
+  const base = process.env.UPLOAD_DIR || "uploads";
   const { filename } = getQuery(event);
 
   const filePath = `${base}${filename}`;
