@@ -6,85 +6,95 @@
     @dragleave.prevent="handleDragLeave"
     @drop.prevent="handleDrop"
   >
-    <div
-      v-if="currentPath"
-      class="file-item navigation-header"
-      :class="{ 'drag-over': isBackButtonDragOver && canDropOnBack }"
-      @dragover.prevent="handleBackDragOver"
-      @dragleave.prevent="handleBackDragLeave"
-      @drop.prevent="handleBackDrop"
-      @click="handleBack"
+    <!-- Wrap the content in a scrollable container -->
+    <FileScrollContainer
+      :show-sort-header="nodes.length > 0"
+      :sort-by="sortBy"
+      :sort-direction="sortDirection"
+      @sort="handleSort"
     >
-      <i class="pi pi-arrow-left" />
-      <span class="current-path"
-        >Back to <strong>{{ parentPath || "Home" }}</strong></span
-      >
-    </div>
-
-    <div
-      v-for="node in nodes"
-      :key="node.data"
-      class="file-item"
-      :class="{
-        selected: selectedNode === node,
-        'is-folder': node.type === 'folder',
-        'drag-over': dragOverNode === node && canDropOnNode(draggedNode, node),
-      }"
-      draggable="true"
-      @dragstart="handleDragStart($event, node)"
-      @dragover.prevent="handleDragOverNode($event, node)"
-      @dragleave.prevent="handleDragLeaveNode(node)"
-      @drop.prevent="handleDropOnNode($event, node)"
-      @dragend="handleDragEnd"
-      @click="handleSelect(node)"
-      @dblclick="handleOpen(node)"
-    >
-      <div class="file-icon">
-        <i :class="getIconClass(node)" />
-      </div>
-
-      <div class="file-details">
-        <span class="file-name">{{ node.label }}</span>
-        <span v-if="viewMode === 'list'" class="file-meta">
-          {{ node.modifiedDate ? formatDate(node.modifiedDate) : "" }}
-        </span>
-      </div>
-
       <div
-        class="file-actions"
-        :class="[node.type === 'folder' ? 'justify-center' : 'justify-between']"
+        v-if="currentPath"
+        class="file-item navigation-header"
+        :class="{ 'drag-over': isBackButtonDragOver && canDropOnBack }"
+        @dragover.prevent="handleBackDragOver"
+        @dragleave.prevent="handleBackDragLeave"
+        @drop.prevent="handleBackDrop"
+        @click="handleBack"
       >
-        <Button
-          v-if="node.type === 'file'"
-          icon="pi pi-download"
-          class="p-button-text"
-          @click.stop="$emit('download', node)"
-        />
-        <Button
-          icon="pi pi-trash"
-          class="p-button-text p-button-danger"
-          @click.stop="confirmDelete(node.data, $event, node.type === 'folder')"
-        />
+        <i class="pi pi-arrow-left" />
+        <span class="current-path"
+          >Back to <strong>{{ parentPath || "Home" }}</strong></span
+        >
       </div>
-    </div>
+      <div
+        v-for="node in sortedNodes"
+        :key="node.data"
+        class="file-item"
+        :class="{
+          selected: selectedNode === node,
+          'is-folder': node.type === 'folder',
+          'drag-over':
+            dragOverNode === node && canDropOnNode(draggedNode, node),
+        }"
+        draggable="true"
+        @dragstart="handleDragStart($event, node)"
+        @dragover.prevent="handleDragOverNode($event, node)"
+        @dragleave.prevent="handleDragLeaveNode(node)"
+        @drop.prevent="handleDropOnNode($event, node)"
+        @dragend="handleDragEnd"
+        @click="handleSelect(node)"
+        @dblclick="handleOpen(node)"
+      >
+        <div class="file-icon">
+          <i :class="getIconClass(node)" />
+        </div>
 
-    <!-- Empty state with drag & drop message -->
-    <div
-      v-if="nodes.length === 0"
-      class="empty-state"
-      :class="{ 'drag-over': isDraggingOver }"
-      @drop.prevent="handleDrop"
-      @click="handleEmptyStateClick"
-    >
-      <i class="pi pi-folder-open"></i>
-      <p>Drop files here or click to browse</p>
-    </div>
+        <div class="file-details">
+          <span class="file-name">{{ node.label }}</span>
+          <span v-if="viewMode === 'list'" class="file-meta">
+            {{ node.modifiedDate ? formatDate(node.modifiedDate) : "" }}
+          </span>
+        </div>
+
+        <div
+          class="file-actions"
+          :class="[
+            node.type === 'folder' ? 'justify-center' : 'justify-between',
+          ]"
+        >
+          <Button
+            v-if="node.type === 'file'"
+            icon="pi pi-download"
+            class="p-button-text"
+            @click.stop="$emit('download', node)"
+          />
+          <Button
+            icon="pi pi-trash"
+            class="p-button-text p-button-danger"
+            @click.stop="
+              confirmDelete(node.data, $event, node.type === 'folder')
+            "
+          />
+        </div>
+      </div>
+
+      <EmptyState
+        v-if="nodes.length === 0"
+        :is-dragging-over="isDraggingOver"
+        @drop="handleDrop"
+        @click="handleEmptyStateClick"
+      />
+    </FileScrollContainer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import type { FileNode } from "~/types/file";
+import type { SortBy, SortDirection } from "@/config/types";
+import FileScrollContainer from "./FileScrollContainer.vue";
+import { getSortedNodes } from "~/helpers/getSortedNodes";
 
 const props = defineProps<{
   nodes: FileNode[];
@@ -282,45 +292,56 @@ const handleBackDrop = async (event: DragEvent) => {
 
 const handleEmptyStateClick = () => {
   // Create a hidden file input element
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
   fileInput.multiple = true;
-  
+
   // Handle file selection
   fileInput.onchange = (event) => {
     const files = (event.target as HTMLInputElement).files;
     if (files?.length) {
-      emit('upload-files', files, props.currentPath || '');
+      emit("upload-files", files, props.currentPath || "");
     }
   };
-  
+
   // Trigger file selection dialog
   fileInput.click();
+};
+
+// Add sorting state
+const sortBy = ref<SortBy>("name");
+const sortDirection = ref<SortDirection>("asc");
+
+// Add computed property for sorted nodes
+const sortedNodes = computed(() =>
+  getSortedNodes(props.nodes, sortBy.value, sortDirection.value)
+);
+
+const handleSort = (
+  newSortBy: typeof sortBy.value,
+  newSortDirection: typeof sortDirection.value
+) => {
+  sortBy.value = newSortBy;
+  sortDirection.value = newSortDirection;
 };
 </script>
 
 <style scoped>
+/* Base container styles */
 .file-container {
   position: relative;
   height: 100%;
   width: 100%;
-  padding: 16px;
 }
 
-/* Grid View */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  grid-template-rows: min-content;
-  gap: 16px;
-}
-
+/* Grid View specific styles */
 .grid .file-item {
+  display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   padding: 12px;
-  width: 100%;
+  height: fit-content;
 }
 
 .grid .file-icon {
@@ -330,20 +351,30 @@ const handleEmptyStateClick = () => {
 
 .grid .file-details {
   width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .grid .file-name {
   font-size: 13px;
-  max-width: 100px;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 0 4px;
   display: block;
-
 }
 
-/* List View */
-.list {
+.grid .file-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* List View specific styles */
+.list .file-content {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -353,7 +384,6 @@ const handleEmptyStateClick = () => {
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  border-radius: 6px;
 }
 
 .list .file-icon {
@@ -367,23 +397,29 @@ const handleEmptyStateClick = () => {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   min-width: 0;
 }
 
 .list .file-name {
   font-size: 14px;
-  flex: 1;
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
 .list .file-meta {
   color: #666;
   font-size: 12px;
+  flex-shrink: 0;
+}
+
+.list .file-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
 }
 
 /* Common styles */
@@ -405,60 +441,19 @@ const handleEmptyStateClick = () => {
 
 .file-actions {
   visibility: hidden;
+  display: flex;
   gap: 4px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .file-item:hover .file-actions {
   visibility: visible;
 }
 
-@media (max-width: 640px) {
-  .grid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 12px;
-  }
-
-  .list .file-meta {
-    display: none;
-  }
-}
-
 .drag-over {
   background: rgba(0, 122, 255, 0.1);
   border: 2px dashed #007aff;
-}
-
-.empty-state {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-  border-radius: 8px;
-  border: 2px dashed #444;
-  transition: all 0.2s ease;
-}
-
-.empty-state.drag-over {
-  background: rgba(0, 122, 255, 0.1);
-  border-color: #007aff;
-}
-
-.empty-state i {
-  font-size: 48px;
-  color: #666;
-  margin-bottom: 16px;
-}
-
-.empty-state p {
-  color: #666;
-  font-size: 14px;
 }
 
 /* Drag feedback styles */
@@ -507,5 +502,6 @@ const handleEmptyStateClick = () => {
 .current-path {
   color: #666;
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
 </style>
