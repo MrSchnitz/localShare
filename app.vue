@@ -55,12 +55,23 @@
         v-model="newFolderName"
         placeholder="Folder name"
         autofocus="true"
+        @keydown.enter="createFolder"
       />
       <template #footer>
         <Button label="Cancel" @click="newFolderDialog = false" />
         <Button label="Create" @click="createFolder" />
       </template>
     </Dialog>
+
+    <!-- Image Viewer -->
+    <ImageViewer
+      v-model:visible="imageViewerVisible"
+      :current-image="currentViewedImage"
+      :images="currentFolderImages"
+      @image-changed="onImageChanged"
+      @download="handleDownload"
+      @delete="handleImageDelete"
+    />
   </FinderLayout>
 </template>
 
@@ -73,7 +84,9 @@ import axios from "axios";
 import PathSet from "./components/PathSet.vue";
 import ErrorState from "./components/ErrorState.vue";
 import LoadingScreen from "./components/LoadingScreen.vue";
+import ImageViewer from "./components/ImageViewer.vue";
 import { ERROR_TYPES } from "./config/types";
+import { isImageFile, getImageFiles } from "./helpers/imageUtils";
 
 const toast = useToast();
 const selectedFolder = ref<FileNode | null>(null);
@@ -92,6 +105,11 @@ const isInitialLoading = ref(true);
 
 const navigationPast = ref<string[][]>([]);
 const navigationFuture = ref<string[][]>([]);
+
+// Image viewer state
+const imageViewerVisible = ref(false);
+const currentViewedImage = ref<FileNode | null>(null);
+const currentFolderImages = ref<FileNode[]>([]);
 
 const { data, refresh, status, error } = await useFetch<{
   nodes: FileNode;
@@ -136,16 +154,8 @@ watch(
   { deep: true }
 );
 
-const onNodeSelect = (node: FileNode) => {
-  if (node.data) {
-    selectedFolder.value = node;
-  }
-};
-
-const onNodeUnselect = (node: FileNode) => {
-  if (node.data) {
-    selectedFolder.value = null;
-  }
+const onNodeSelect = (node: FileNode | null) => {
+  selectedFolder.value = node;
 };
 
 const handleDownload = async (node: FileNode) => {
@@ -240,6 +250,11 @@ const currentFolderContent = computed(() => {
   return currentFolder?.children || [];
 });
 
+// Computed property to get all images in the current folder
+const imagesInCurrentFolder = computed(() => {
+  return getImageFiles(currentFolderContent.value);
+});
+
 // Helper function to find a node by its path
 const findNodeByPath = (
   nodes: FileNode[],
@@ -303,15 +318,41 @@ const navigateForward = async () => {
   }
 };
 
-// Updated handleOpen to properly handle folder navigation
+// Updated handleOpen to properly handle folder navigation and image viewing
 const handleOpen = (node: FileNode) => {
   if (node.type === "folder") {
     // If it's a folder, navigate to its path
     navigateToPath(node.data);
+  } else if (isImageFile(node)) {
+    // If it's an image file, open in image viewer
+    openImageViewer(node);
   } else {
-    // If it's a file, download it
+    // For other files, download them
     handleDownload(node);
   }
+};
+
+// Image viewer methods
+const openImageViewer = (imageNode: FileNode) => {
+  currentViewedImage.value = imageNode;
+  currentFolderImages.value = imagesInCurrentFolder.value;
+  imageViewerVisible.value = true;
+};
+
+const onImageChanged = (newImage: FileNode) => {
+  currentViewedImage.value = newImage;
+};
+
+const handleImageDelete = async (imageNode: FileNode) => {
+  // Close the image viewer first
+  imageViewerVisible.value = false;
+
+  // Perform the delete
+  await handleDelete(imageNode.data, false);
+
+  // Clear the viewed image state
+  currentViewedImage.value = null;
+  currentFolderImages.value = [];
 };
 
 const toggleView = (mode: "grid" | "list") => {

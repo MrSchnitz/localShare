@@ -114,8 +114,15 @@ const getIconClass = (node: FileNode) => {
     case "pdf":
       return "pi pi-file-pdf text-red-500";
     case "jpg":
+    case "jpeg":
     case "png":
     case "gif":
+    case "webp":
+    case "svg":
+    case "bmp":
+    case "tiff":
+    case "tif":
+    case "ico":
       return "pi pi-image text-blue-500";
     default:
       return "pi pi-file text-gray-500";

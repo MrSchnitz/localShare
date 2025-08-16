@@ -66,7 +66,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  select: [node: FileNode];
+  select: [node: FileNode | null];
   open: [node: FileNode];
   download: [node: FileNode];
   delete: [path: string, isFolder: boolean];
@@ -124,8 +124,13 @@ const handleSetIsDraggingOver = (newIsDraggingOver: boolean) => {
 };
 
 const handleSelect = (node: FileNode) => {
-  selectedNode.value = node;
-  emit("select", node);
+  if (selectedNode.value === node) {
+    selectedNode.value = null;
+    emit("select", null);
+  } else {
+    selectedNode.value = node;
+    emit("select", node);
+  }
 };
 
 const handleOpen = (node: FileNode) => {
