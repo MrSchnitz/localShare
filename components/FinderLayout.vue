@@ -1,21 +1,21 @@
 <template>
   <div class="finder-window">
     <!-- Finder Toolbar -->
-    <div class="finder-toolbar">  
+    <div class="finder-toolbar">
       <div class="toolbar-actions">
         <div class="navigation-group">
-          <button 
-            class="toolbar-btn nav-btn" 
-            :class="{ 'disabled': !canGoBack }"
-            @click="$emit('navigate-back')" 
+          <button
+            class="toolbar-btn nav-btn"
+            :class="{ disabled: !canGoBack }"
+            @click="$emit('navigate-back')"
             :disabled="!canGoBack"
           >
             <i class="pi pi-chevron-left"></i>
           </button>
-          <button 
-            class="toolbar-btn nav-btn" 
-            :class="{ 'disabled': !canGoForward }"
-            @click="$emit('navigate-forward')" 
+          <button
+            class="toolbar-btn nav-btn"
+            :class="{ disabled: !canGoForward }"
+            @click="$emit('navigate-forward')"
             :disabled="!canGoForward"
           >
             <i class="pi pi-chevron-right"></i>
@@ -23,23 +23,25 @@
         </div>
 
         <div class="view-controls">
-          <button 
-            class="toolbar-btn" 
-            :class="{ 'active': viewMode === 'list' }"
+          <button
+            class="toolbar-btn"
+            :class="{ active: viewMode === 'list' }"
             @click="$emit('toggle-view', 'list')"
           >
             <i class="pi pi-list"></i>
           </button>
-          <button 
-            class="toolbar-btn" 
-            :class="{ 'active': viewMode === 'grid' }"
+          <button
+            class="toolbar-btn"
+            :class="{ active: viewMode === 'grid' }"
             @click="$emit('toggle-view', 'grid')"
           >
             <i class="pi pi-th-large"></i>
           </button>
         </div>
 
-        <div class="toolbar-title">{{ currentTitle }}</div>
+        <div class="toolbar-title">
+          <span>{{ currentTitle }}</span>
+        </div>
 
         <div class="toolbar-spacer"></div>
 
@@ -48,17 +50,27 @@
             <i class="pi pi-folder-open"></i>
             <span class="btn-text">New Folder</span>
           </button>
-          <button 
-            class="toolbar-btn" 
+          <button
+            class="toolbar-btn"
             @click="triggerFileUpload"
             :disabled="isUploading"
           >
-            <i :class="isUploading ? 'pi pi-spinner pi-spin' : 'pi pi-upload'"></i>
-            <span class="btn-text">{{ isUploading ? 'Uploading...' : 'Upload' }}</span>
+            <i
+              :class="isUploading ? 'pi pi-spinner pi-spin' : 'pi pi-upload'"
+            ></i>
+            <span class="btn-text">{{
+              isUploading ? "Uploading..." : "Upload"
+            }}</span>
           </button>
-          <button class="toolbar-btn">
+          <button ref="menuButton" class="toolbar-btn" @click="toggleMenu">
             <i class="pi pi-ellipsis-h"></i>
           </button>
+          <Menu
+            ref="menu"
+            :model="menuItems"
+            :popup="true"
+            class="toolbar-menu"
+          />
         </div>
       </div>
     </div>
@@ -66,13 +78,13 @@
     <!-- Path Bar -->
     <div class="path-bar">
       <template v-for="(segment, index) in pathSegments" :key="index">
-        <span 
-          class="path-segment" 
-          @click="$emit('navigate-to', index)"
-        >
+        <span class="path-segment" @click="$emit('navigate-to', index)">
           {{ segment }}
         </span>
-        <i v-if="index < pathSegments.length - 1" class="pi pi-chevron-right separator" />
+        <i
+          v-if="index < pathSegments.length - 1"
+          class="pi pi-chevron-right separator"
+        />
       </template>
     </div>
 
@@ -103,32 +115,53 @@
       multiple
       class="hidden"
       @change="handleFileInputChange"
-    >
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref } from "vue";
+import Menu from "primevue/menu";
 
 const props = defineProps<{
-  pathSegments: string[]
-  canGoBack: boolean
-  canGoForward: boolean
-  currentTitle: string
-  viewMode: 'grid' | 'list'
-  isUploading?: boolean
+  pathSegments: string[];
+  canGoBack: boolean;
+  canGoForward: boolean;
+  currentTitle: string;
+  viewMode: "grid" | "list";
+  isUploading?: boolean;
+  canSetPath?: boolean;
 }>();
 
 const emit = defineEmits<{
-  'navigate-back': []
-  'navigate-forward': []
-  'navigate-to': [index: number]
-  'upload-files': [files: FileList, targetPath: string]
-  'new-folder': []
-  'toggle-view': ['grid' | 'list']
+  "navigate-back": [];
+  "navigate-forward": [];
+  "navigate-to": [index: number];
+  "upload-files": [files: FileList, targetPath: string];
+  "new-folder": [];
+  "toggle-view": ["grid" | "list"];
+  "adjust-path": [];
 }>();
 
 const fileInput = ref<HTMLInputElement | null>(null);
+const menuButton = ref<HTMLButtonElement | null>(null);
+const menu = ref<any>(null);
+
+const menuItems = ref([
+  {
+    ...(props.canSetPath && {
+      label: "Set shared folder path",
+      icon: "pi pi-folder",
+      command: () => emit("adjust-path"),
+    }),
+  },
+]);
+
+const toggleMenu = (event: Event) => {
+  if (menu.value) {
+    menu.value.toggle(event);
+  }
+};
 
 const triggerFileUpload = () => {
   fileInput.value?.click();
@@ -137,7 +170,7 @@ const triggerFileUpload = () => {
 const handleFileInputChange = (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files?.length) {
-    emit('upload-files', input.files, '');
+    emit("upload-files", input.files, "");
   }
 };
 </script>
@@ -241,6 +274,9 @@ const handleFileInputChange = (event: Event) => {
   color: #fff;
   margin-left: 8px;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .toolbar-spacer {
@@ -288,7 +324,8 @@ const handleFileInputChange = (event: Event) => {
     gap: 8px;
   }
 
-  .navigation-group, .view-controls {
+  .navigation-group,
+  .view-controls {
     transform: scale(1.1);
   }
 
@@ -299,11 +336,13 @@ const handleFileInputChange = (event: Event) => {
 }
 
 /* Optional: Add subtle transition effects */
-.toolbar-btn, .nav-btn {
+.toolbar-btn,
+.nav-btn {
   transition: all 0.1s ease;
 }
 
-.toolbar-btn:active, .nav-btn:active {
+.toolbar-btn:active,
+.nav-btn:active {
   transform: scale(0.95);
 }
 
@@ -398,7 +437,7 @@ const handleFileInputChange = (event: Event) => {
   .btn-text {
     display: none;
   }
-  
+
   .action-buttons .toolbar-btn {
     padding: 0 8px;
     width: 32px;
@@ -416,4 +455,4 @@ const handleFileInputChange = (event: Event) => {
   opacity: 0.6;
   cursor: not-allowed;
 }
-</style> 
+</style>

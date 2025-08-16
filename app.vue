@@ -1,21 +1,42 @@
 <template>
   <Toast position="bottom-right" group="br" />
 
+  <!-- Loading Screen for Initial Setup -->
+  <LoadingScreen v-if="isInitialLoading" text="Loading files..." />
+
+  <!-- Path Setup Screen -->
+  <PathSet
+    v-else-if="!isPathSet.isSet || isPathSet.isBeingAdjusted"
+    :is-local="isPathSet.isLocal"
+    :is-being-adjusted="isPathSet.isBeingAdjusted"
+    @cancel="isPathSet.isBeingAdjusted = false"
+    @refresh-path="refresh"
+  />
+
+  <!-- Main App with Data Loading State -->
   <FinderLayout
+    v-else
     :path-segments="['Home', ...currentPath]"
     :can-go-back="navigationPast.length > 0"
     :can-go-forward="navigationFuture.length > 0"
     :current-title="currentTitle"
     :view-mode="viewMode"
     :is-uploading="isUploading"
+    :can-set-path="isPathSet.isLocal"
     @navigate-back="navigateBack"
     @navigate-forward="navigateForward"
     @navigate-to="navigateToPath"
     @upload-files="handleFileUpload"
     @new-folder="showNewFolderDialog"
     @toggle-view="toggleView"
+    @adjust-path="isPathSet.isBeingAdjusted = true"
   >
+    <!-- Error State -->
+    <ErrorState v-if="status === 'error'" @retry="refresh" />
+
+    <!-- File Tree (only show when data is loaded and not navigating) -->
     <FileTree
+      v-else
       :nodes="currentFolderContent"
       :view-mode="viewMode"
       :current-path="currentPath.join('/')"
@@ -49,6 +70,10 @@ import type { FileNode } from "~/types/file";
 import { useAutoRefresh } from "~/composables/useAutoRefresh";
 import { useToast } from "primevue/usetoast";
 import axios from "axios";
+import PathSet from "./components/PathSet.vue";
+import ErrorState from "./components/ErrorState.vue";
+import LoadingScreen from "./components/LoadingScreen.vue";
+import { ERROR_TYPES } from "./config/types";
 
 const toast = useToast();
 const selectedFolder = ref<FileNode | null>(null);
@@ -58,28 +83,54 @@ const viewMode = ref<"grid" | "list">("grid");
 const newFolderDialog = ref(false);
 const newFolderName = ref("");
 const isUploading = ref(false);
+const isPathSet = ref({
+  isSet: false,
+  isLocal: false,
+  isBeingAdjusted: false,
+});
+const isInitialLoading = ref(true);
 
 const navigationPast = ref<string[][]>([]);
 const navigationFuture = ref<string[][]>([]);
 
-const { data, refresh } = await useFetch<{ children: FileNode[] }>(
-  "/api/files"
-);
+const { data, refresh, status, error } = await useFetch<{
+  nodes: FileNode;
+  isLocal: boolean;
+}>("/api/files");
 useAutoRefresh(refresh);
 
-onMounted(async () => {
-  await refresh();
-  const savedMode = localStorage.getItem("preferredViewMode");
-  if (savedMode === "grid" || savedMode === "list") {
-    viewMode.value = savedMode;
+onMounted(() => {
+  isInitialLoading.value = false;
+
+  if (error.value?.data.message === ERROR_TYPES.UploadDirectoryNotSet) {
+    isPathSet.value.isSet = false;
+    isPathSet.value.isLocal = true;
+    return;
+  }
+
+  if (error.value?.data.message === ERROR_TYPES.SetupError) {
+    isPathSet.value.isSet = false;
+    isPathSet.value.isLocal = false;
+    return;
+  }
+
+  if (data.value?.nodes) {
+    isPathSet.value.isSet = true;
+    nodes.value = data.value.nodes.children ?? [];
+    isPathSet.value.isLocal = data.value.isLocal;
   }
 });
 
 watch(
-  () => data.value?.children,
-  (newChildren) => {
-    if (newChildren) {
-      nodes.value = newChildren;
+  () => data.value,
+  (newData) => {
+    if (newData) {
+      if (!isPathSet.value.isSet) {
+        isPathSet.value.isSet = true;
+      }
+
+      nodes.value = newData.nodes.children ?? [];
+      isPathSet.value.isLocal = newData.isLocal;
     }
   },
   { deep: true }
@@ -160,6 +211,8 @@ const handleCreateFolder = async (parentPath: string, folderName: string) => {
       life: 3000,
       group: "br",
     });
+
+    navigateToPath(folderPath);
   } catch (error) {
     console.error("Create folder error:", error);
     toast.add({
@@ -205,36 +258,48 @@ const findNodeByPath = (
 };
 
 // Updated navigateToPath to handle paths correctly
-const navigateToPath = (pathOrIndex: number | string) => {
-  navigationPast.value.push([...currentPath.value]);
-  navigationFuture.value = [];
-
-  if (typeof pathOrIndex === "number") {
-    // When clicking breadcrumb
-    currentPath.value = currentPathSegments.value
-      .slice(1, pathOrIndex + 1)
-      .filter(Boolean);
-  } else {
-    // When opening a folder
-    currentPath.value = pathOrIndex.toString().split("/").filter(Boolean);
-  }
-
-  refresh();
-};
-
-const navigateBack = () => {
-  if (navigationPast.value.length) {
-    navigationFuture.value.push([...currentPath.value]);
-    currentPath.value = navigationPast.value.pop()!;
-    refresh();
-  }
-};
-
-const navigateForward = () => {
-  if (navigationFuture.value.length) {
+const navigateToPath = async (pathOrIndex: number | string) => {
+  try {
     navigationPast.value.push([...currentPath.value]);
-    currentPath.value = navigationFuture.value.pop()!;
-    refresh();
+    navigationFuture.value = [];
+
+    if (typeof pathOrIndex === "number") {
+      // When clicking breadcrumb
+      currentPath.value = currentPathSegments.value
+        .slice(1, pathOrIndex + 1)
+        .filter(Boolean);
+    } else {
+      // When opening a folder
+      currentPath.value = pathOrIndex.toString().split("/").filter(Boolean);
+    }
+
+    await refresh();
+  } catch (error) {
+    console.error("Navigate to path error:", error);
+  }
+};
+
+const navigateBack = async () => {
+  if (navigationPast.value.length) {
+    try {
+      navigationFuture.value.push([...currentPath.value]);
+      currentPath.value = navigationPast.value.pop()!;
+      await refresh();
+    } catch (error) {
+      console.error("Navigate back error:", error);
+    }
+  }
+};
+
+const navigateForward = async () => {
+  if (navigationFuture.value.length) {
+    try {
+      navigationPast.value.push([...currentPath.value]);
+      currentPath.value = navigationFuture.value.pop()!;
+      await refresh();
+    } catch (error) {
+      console.error("Navigate forward error:", error);
+    }
   }
 };
 
