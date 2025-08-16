@@ -72,6 +72,16 @@
       @download="handleDownload"
       @delete="handleImageDelete"
     />
+
+    <!-- Media Player -->
+    <MediaPlayer
+      v-model:visible="mediaPlayerVisible"
+      :current-media="currentViewedMedia"
+      :media-files="currentFolderMediaFiles"
+      @media-changed="onMediaChanged"
+      @download="handleDownload"
+      @delete="handleMediaDelete"
+    />
   </FinderLayout>
 </template>
 
@@ -85,8 +95,11 @@ import PathSet from "./components/PathSet.vue";
 import ErrorState from "./components/ErrorState.vue";
 import LoadingScreen from "./components/LoadingScreen.vue";
 import ImageViewer from "./components/ImageViewer.vue";
+import MediaPlayer from "./components/MediaPlayer.vue";
 import { ERROR_TYPES } from "./config/types";
 import { isImageFile, getImageFiles } from "./helpers/imageUtils";
+import { isVideoFile, getVideoFiles } from "./helpers/videoUtils";
+import { isAudioFile, getAudioFiles } from "./helpers/audioUtils";
 
 const toast = useToast();
 const selectedFolder = ref<FileNode | null>(null);
@@ -110,6 +123,11 @@ const navigationFuture = ref<string[][]>([]);
 const imageViewerVisible = ref(false);
 const currentViewedImage = ref<FileNode | null>(null);
 const currentFolderImages = ref<FileNode[]>([]);
+
+// Media player state (videos and audio)
+const mediaPlayerVisible = ref(false);
+const currentViewedMedia = ref<FileNode | null>(null);
+const currentFolderMediaFiles = ref<FileNode[]>([]);
 
 const { data, refresh, status, error } = await useFetch<{
   nodes: FileNode;
@@ -255,6 +273,13 @@ const imagesInCurrentFolder = computed(() => {
   return getImageFiles(currentFolderContent.value);
 });
 
+// Computed property to get all media files (videos and audio) in the current folder
+const mediaFilesInCurrentFolder = computed(() => {
+  const videos = getVideoFiles(currentFolderContent.value);
+  const audio = getAudioFiles(currentFolderContent.value);
+  return [...videos, ...audio];
+});
+
 // Helper function to find a node by its path
 const findNodeByPath = (
   nodes: FileNode[],
@@ -318,7 +343,7 @@ const navigateForward = async () => {
   }
 };
 
-// Updated handleOpen to properly handle folder navigation and image viewing
+// Updated handleOpen to properly handle folder navigation, image viewing, and media playback
 const handleOpen = (node: FileNode) => {
   if (node.type === "folder") {
     // If it's a folder, navigate to its path
@@ -326,6 +351,9 @@ const handleOpen = (node: FileNode) => {
   } else if (isImageFile(node)) {
     // If it's an image file, open in image viewer
     openImageViewer(node);
+  } else if (isVideoFile(node) || isAudioFile(node)) {
+    // If it's a video or audio file, open in media player
+    openMediaPlayer(node);
   } else {
     // For other files, download them
     handleDownload(node);
@@ -353,6 +381,29 @@ const handleImageDelete = async (imageNode: FileNode) => {
   // Clear the viewed image state
   currentViewedImage.value = null;
   currentFolderImages.value = [];
+};
+
+// Media player methods
+const openMediaPlayer = (mediaNode: FileNode) => {
+  currentViewedMedia.value = mediaNode;
+  currentFolderMediaFiles.value = mediaFilesInCurrentFolder.value;
+  mediaPlayerVisible.value = true;
+};
+
+const onMediaChanged = (newMedia: FileNode) => {
+  currentViewedMedia.value = newMedia;
+};
+
+const handleMediaDelete = async (mediaNode: FileNode) => {
+  // Close the media player first
+  mediaPlayerVisible.value = false;
+
+  // Perform the delete
+  await handleDelete(mediaNode.data, false);
+
+  // Clear the viewed media state
+  currentViewedMedia.value = null;
+  currentFolderMediaFiles.value = [];
 };
 
 const toggleView = (mode: "grid" | "list") => {
