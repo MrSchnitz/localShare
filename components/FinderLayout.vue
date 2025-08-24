@@ -183,7 +183,7 @@ const handleFileInputChange = (event: Event) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   width: 100%;
   max-width: 100vw;
 }

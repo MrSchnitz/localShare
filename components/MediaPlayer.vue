@@ -6,12 +6,13 @@
     :closable="false"
     :draggable="false"
     class="media-player-dialog"
-    :style="{ width: '90vw', height: '90vh' }"
+    :class="{ 'mobile-optimized': isMobile }"
+    :style="dialogStyle"
   >
     <template #header>
-      <div class="media-player-header">
+      <div class="media-player-header" :class="{ 'mobile-header': isMobile }">
         <span class="media-title">{{ currentMedia?.label }}</span>
-        <div class="header-controls">
+        <div class="header-controls" v-if="!isMobile">
           <div class="playback-controls">
             <Button
               :icon="isPlaying ? 'pi pi-pause' : 'pi pi-play'"
@@ -69,13 +70,21 @@
             />
           </div>
         </div>
+        
+        <!-- Mobile-only close button -->
+        <Button
+          v-if="isMobile"
+          icon="pi pi-times"
+          class="p-button-text p-button-secondary mobile-close-btn"
+          @click="closeViewer"
+        />
       </div>
     </template>
 
-    <div class="media-player-content">
-      <!-- Navigation arrows -->
+    <div class="media-player-content" :class="{ 'mobile-content': isMobile }">
+      <!-- Navigation arrows - hidden on mobile -->
       <Button
-        v-if="canNavigatePrevious"
+        v-if="canNavigatePrevious && !isMobile"
         icon="pi pi-chevron-left"
         class="p-button-text nav-arrow nav-arrow-left"
         @click="navigatePrevious"
@@ -102,12 +111,12 @@
         </video>
         
         <!-- Audio visualization overlay for audio files -->
-        <div v-if="currentMediaUrl && isCurrentMediaAudio" class="audio-overlay">
+        <div v-if="currentMediaUrl && isCurrentMediaAudio" class="audio-overlay" :class="{ 'mobile-audio-overlay': isMobile }">
           <div class="audio-icon">
-            <i class="pi pi-volume-up" style="font-size: 4rem;"></i>
+            <i class="pi pi-volume-up" :style="{ fontSize: isMobile ? '3rem' : '4rem' }"></i>
           </div>
           <div class="audio-info">
-            <h3>{{ currentMedia?.label }}</h3>
+            <h3 :class="{ 'mobile-title': isMobile }">{{ currentMedia?.label }}</h3>
             <p>Audio file</p>
           </div>
         </div>
@@ -124,14 +133,73 @@
       </div>
 
       <Button
-        v-if="canNavigateNext"
+        v-if="canNavigateNext && !isMobile"
         icon="pi pi-chevron-right"
         class="p-button-text nav-arrow nav-arrow-right"
         @click="navigateNext"
       />
     </div>
 
-    <div v-if="currentMediaUrl && !isLoading" class="media-info">
+    <!-- Mobile Touch Controls -->
+    <div v-if="isMobile" class="mobile-controls">
+      <!-- Mobile Media Controls -->
+      <div class="mobile-media-controls">
+        <Button
+          :icon="isPlaying ? 'pi pi-pause' : 'pi pi-play'"
+          class="p-button-text mobile-control-btn play-btn"
+          @click="togglePlayback"
+        />
+        <Button
+          :icon="isMuted ? 'pi pi-volume-off' : 'pi pi-volume-up'"
+          class="p-button-text mobile-control-btn"
+          @click="toggleMute"
+        />
+        <div class="mobile-volume-control">
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            v-model="volume"
+            @input="updateVolume"
+            class="mobile-volume-slider"
+          />
+        </div>
+      </div>
+
+      <!-- Mobile Navigation -->
+      <div class="mobile-navigation">
+        <Button
+          v-if="canNavigatePrevious"
+          icon="pi pi-chevron-left"
+          class="p-button-text mobile-nav-btn"
+          @click="navigatePrevious"
+        />
+        <span class="mobile-nav-info">{{ currentMediaIndex + 1 }} / {{ props.mediaFiles.length }}</span>
+        <Button
+          v-if="canNavigateNext"
+          icon="pi pi-chevron-right"
+          class="p-button-text mobile-nav-btn"
+          @click="navigateNext"
+        />
+      </div>
+
+      <!-- Mobile Action Controls -->
+      <div class="mobile-actions">
+        <Button
+          icon="pi pi-download"
+          class="p-button-text mobile-action-btn"
+          @click="downloadMedia"
+        />
+        <Button
+          icon="pi pi-trash"
+          class="p-button-text p-button-danger mobile-action-btn"
+          @click="deleteMedia"
+        />
+      </div>
+    </div>
+
+    <div v-if="currentMediaUrl && !isLoading" class="media-info lg:hidden" :class="{ 'mobile-media-info': isMobile }">
       <div class="progress-info">
         <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
         <div class="progress-bar">
@@ -150,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted, onMounted } from 'vue'
 import type { FileNode } from '~/types/file'
 import { getVideoMimeType } from '~/helpers/videoUtils'
 import { getAudioMimeType, isAudioFile } from '~/helpers/audioUtils'
@@ -167,6 +235,9 @@ const emit = defineEmits<{
   'download': [media: FileNode]
   'delete': [media: FileNode]
 }>()
+
+// Mobile detection
+const isMobile = ref(false)
 
 // State
 const currentMediaUrl = ref<string | null>(null)
@@ -197,6 +268,34 @@ const canNavigatePrevious = computed(() => {
 
 const canNavigateNext = computed(() => {
   return props.mediaFiles.length > 1 && currentMediaIndex.value < props.mediaFiles.length - 1
+})
+
+// Dialog styling
+const dialogStyle = computed(() => {
+  if (isMobile.value) {
+    return { 
+      width: '100vw', 
+      height: '100dvh',
+      maxWidth: '100vw',
+      maxHeight: '100dvh',
+      margin: '0',
+      borderRadius: '0'
+    }
+  } else {
+    return { width: '90vw' }
+  }
+})
+
+// Mobile setup
+onMounted(() => {
+  // Simple mobile detection
+  isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768
+  
+  // Listen for resize events
+  const handleResize = () => {
+    isMobile.value = window.innerWidth <= 768
+  }
+  window.addEventListener('resize', handleResize)
 })
 
 // Keyboard navigation
@@ -275,12 +374,20 @@ watch(() => props.visible, (newVisible) => {
   if (newVisible) {
     // Add keyboard event listener when dialog opens
     document.addEventListener('keydown', handleKeydown)
+    // Prevent scrolling on mobile
+    if (isMobile.value) {
+      document.body.style.overflow = 'hidden'
+    }
   } else {
     // Remove keyboard event listener when dialog closes
     document.removeEventListener('keydown', handleKeydown)
     // Pause media when closing
     if (mediaElement.value) {
       mediaElement.value.pause()
+    }
+    // Restore scrolling
+    if (isMobile.value) {
+      document.body.style.overflow = 'auto'
     }
   }
 })
@@ -735,5 +842,133 @@ onUnmounted(() => {
 
 .media-player-content:hover::after {
   opacity: 1;
+}
+
+/* Mobile Optimizations */
+.media-player-dialog.mobile-optimized :deep(.p-dialog) {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+.mobile-header {
+  padding: 0.5rem 1rem !important;
+  background: rgba(0, 0, 0, 0.9);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.mobile-close-btn {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+.mobile-content {
+  touch-action: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-audio-overlay {
+  bottom: 120px !important;
+  gap: 1rem !important;
+}
+
+.mobile-title {
+  font-size: 1.2rem !important;
+}
+
+.mobile-controls {
+  background: rgba(0, 0, 0, 0.9);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: sticky;
+  bottom: 0;
+  z-index: 1000;
+}
+
+.mobile-media-controls,
+.mobile-navigation,
+.mobile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.mobile-control-btn,
+.mobile-nav-btn,
+.mobile-action-btn {
+  min-width: 48px;
+  min-height: 48px;
+  border-radius: 50%;
+}
+
+.play-btn {
+  min-width: 60px !important;
+  min-height: 60px !important;
+  background: #007aff;
+}
+
+.mobile-nav-info {
+  color: #cccccc;
+  font-size: 0.9rem;
+  min-width: 80px;
+  text-align: center;
+}
+
+.mobile-volume-control {
+  flex: 1;
+  max-width: 200px;
+}
+
+.mobile-volume-slider {
+  width: 100%;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  outline: none;
+}
+
+.mobile-volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #007aff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.mobile-media-info {
+  padding: 0.5rem 1rem !important;
+  position: sticky;
+  bottom: 0;
+  z-index: 999;
+}
+
+/* Hide scrollbars on mobile */
+@media (max-width: 768px) {
+  .media-player-content::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .media-player-content {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Mobile shortcuts hint */
+  .media-player-content::after {
+    content: "Tap for controls • Swipe to navigate" !important;
+    font-size: 0.7rem !important;
+    padding: 6px 12px !important;
+    border-radius: 15px !important;
+    white-space: nowrap;
+  }
 }
 </style> 

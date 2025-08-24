@@ -20,7 +20,7 @@
     </div>
 
     <div class="file-details">
-      <span class="file-name">{{ node.label }}</span>
+      <span class="file-name text-white">{{ node.label }}</span>
       <span v-if="viewMode === 'list'" class="file-meta">
         {{ node.modifiedDate ? formatDate(node.modifiedDate) : "" }}
       </span>
