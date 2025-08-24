@@ -12,9 +12,18 @@
     @dragleave.prevent="handleDragLeaveNode(node)"
     @drop.prevent="handleDropOnNode($event, node)"
     @dragend="handleDragEnd"
-    @click="emit('onClick', node)"
-    @dblclick="emit('onDoubleClick', node)"
+    @click="handleItemClick"
   >
+    <div class="file-checkbox">
+      <input
+        type="checkbox" 
+        :checked="selectedNode === node"
+        @change="handleCheckboxChange"
+        @click.stop
+        class="checkbox-input"
+      />
+    </div>
+
     <div class="file-icon">
       <i :class="getIconClass(node)" />
     </div>
@@ -106,6 +115,16 @@ const handleDragEnd = () => {
   emit("setDragOverNode", null);
 };
 
+// Handle item click to open files/folders (was double-click behavior)
+const handleItemClick = () => {
+  emit("onDoubleClick", props.node);
+};
+
+// Handle checkbox change for selection
+const handleCheckboxChange = () => {
+  emit("onClick", props.node);
+};
+
 const getIconClass = (node: FileNode) => {
   if (node.type === "folder") return "pi pi-folder text-yellow-500";
 
@@ -162,6 +181,7 @@ const confirmDelete = (path: string, event: Event, isFolder = false) => {
   text-align: center;
   padding: 12px;
   height: fit-content;
+  position: relative;
 }
 
 .grid .file-icon {
@@ -191,6 +211,13 @@ const confirmDelete = (path: string, event: Event, isFolder = false) => {
   display: flex;
   justify-content: center;
   margin-top: 8px;
+  gap: 8px;
+}
+
+.grid .file-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
 }
 
 /* List View specific styles */
@@ -204,6 +231,11 @@ const confirmDelete = (path: string, event: Event, isFolder = false) => {
   display: flex;
   align-items: center;
   padding: 8px 12px;
+}
+
+.list .file-checkbox {
+  margin-right: 12px;
+  flex-shrink: 0;
 }
 
 .list .file-icon {
@@ -238,7 +270,7 @@ const confirmDelete = (path: string, event: Event, isFolder = false) => {
 
 .list .file-actions {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -246,6 +278,7 @@ const confirmDelete = (path: string, event: Event, isFolder = false) => {
 .file-item {
   background: #2a2a2a;
   border-radius: 6px;
+  border: 2px solid transparent;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -256,7 +289,7 @@ const confirmDelete = (path: string, event: Event, isFolder = false) => {
 
 .file-item.selected {
   background: rgba(0, 122, 255, 0.2);
-  outline: 2px solid #007aff;
+  border-color: #007aff;
 }
 
 .file-actions {
@@ -267,18 +300,58 @@ const confirmDelete = (path: string, event: Event, isFolder = false) => {
   flex-shrink: 0;
 }
 
-.file-item:hover .file-actions {
+.file-item:hover .file-actions,
+.file-item.selected .file-actions {
   visibility: visible;
 }
 
 .drag-over {
   background: rgba(0, 122, 255, 0.1);
-  border: 2px dashed #007aff;
+  border-color: #007aff;
+  border-style: dashed;
 }
 
 /* Drag feedback styles */
 .file-item.is-folder.drag-over {
   background: rgba(0, 122, 255, 0.1);
-  border: 2px dashed #007aff;
+  border-color: #007aff;
+  border-style: dashed;
+}
+
+/* Checkbox styles */
+.checkbox-input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #007aff;
+}
+
+.file-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Mobile-friendly button styling */
+.file-actions .p-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (max-width: 768px) {
+  .file-actions .p-button {
+    padding: 12px;
+  }
+  
+  /* Make selected items more prominent on mobile */
+  .file-item.selected {
+    background: rgba(0, 122, 255, 0.25);
+    border-color: #007aff;
+  }
+  
+  /* Ensure adequate spacing for touch targets in grid view */
+  .grid .file-item.selected {
+    padding: 16px 12px;
+  }
 }
 </style>
