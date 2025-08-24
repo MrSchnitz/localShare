@@ -1,7 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import type { TreeNode } from "primevue/treenode";
-import { checkLocalByIP } from "~/helpers/checkLocal";
 import { ERROR_TYPES } from "~/config/types";
 
 const IGNORED_FILES = [".DS_Store", "__MACOSX"];
@@ -66,19 +65,8 @@ async function scanAndMapFolder(
 
 export default defineEventHandler(async (event) => {
   const location = process.env.UPLOAD_DIR;
-  // Check if the request is coming from a local source
-  const hostname = getHeader(event, "host") || "";
-  const isLocal = checkLocalByIP(hostname);
 
   if (!location) {
-    if (!isLocal) {
-      throw createError({
-        statusCode: 403,
-        message: ERROR_TYPES.SetupError,
-        statusMessage: "Shared folder is not set",
-      });
-    }
-
     throw createError({
       statusCode: 400,
       message: ERROR_TYPES.UploadDirectoryNotSet,
@@ -88,5 +76,5 @@ export default defineEventHandler(async (event) => {
 
   const nodes = await scanAndMapFolder(location);
 
-  return { nodes, isLocal };
+  return { nodes };
 });

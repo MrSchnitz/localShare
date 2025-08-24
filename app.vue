@@ -7,7 +7,7 @@
   <!-- Path Setup Screen -->
   <PathSet
     v-else-if="!isPathSet.isSet || isPathSet.isBeingAdjusted"
-    :is-local="isPathSet.isLocal"
+    :is-admin="isPathSet.isAdmin"
     :is-being-adjusted="isPathSet.isBeingAdjusted"
     @cancel="isPathSet.isBeingAdjusted = false"
     @refresh-path="refresh"
@@ -22,7 +22,7 @@
     :current-title="currentTitle"
     :view-mode="viewMode"
     :is-uploading="isUploading"
-    :can-set-path="isPathSet.isLocal"
+    :can-set-path="isPathSet.isAdmin"
     @navigate-back="navigateBack"
     @navigate-forward="navigateForward"
     @navigate-to="navigateToPath"
@@ -100,6 +100,7 @@ import { ERROR_TYPES } from "./config/types";
 import { isImageFile, getImageFiles } from "./helpers/imageUtils";
 import { isVideoFile, getVideoFiles } from "./helpers/videoUtils";
 import { isAudioFile, getAudioFiles } from "./helpers/audioUtils";
+import { checkAdmin } from "./helpers/checkAdmin";
 
 const toast = useToast();
 const selectedFolder = ref<FileNode | null>(null);
@@ -111,7 +112,7 @@ const newFolderName = ref("");
 const isUploading = ref(false);
 const isPathSet = ref({
   isSet: false,
-  isLocal: false,
+  isAdmin: false,
   isBeingAdjusted: false,
 });
 const isInitialLoading = ref(true);
@@ -131,29 +132,31 @@ const currentFolderMediaFiles = ref<FileNode[]>([]);
 
 const { data, refresh, status, error } = await useFetch<{
   nodes: FileNode;
-  isLocal: boolean;
 }>("/api/files");
 useAutoRefresh(refresh);
 
 onMounted(() => {
   isInitialLoading.value = false;
+  isPathSet.value.isAdmin = checkAdmin();
+
+  const preferredViewMode = localStorage.getItem("preferredViewMode");
+  if (preferredViewMode) {
+    viewMode.value = preferredViewMode as "grid" | "list";
+  }
 
   if (error.value?.data.message === ERROR_TYPES.UploadDirectoryNotSet) {
     isPathSet.value.isSet = false;
-    isPathSet.value.isLocal = true;
     return;
   }
 
   if (error.value?.data.message === ERROR_TYPES.SetupError) {
     isPathSet.value.isSet = false;
-    isPathSet.value.isLocal = false;
     return;
   }
 
   if (data.value?.nodes) {
     isPathSet.value.isSet = true;
     nodes.value = data.value.nodes.children ?? [];
-    isPathSet.value.isLocal = data.value.isLocal;
   }
 });
 
@@ -166,7 +169,6 @@ watch(
       }
 
       nodes.value = newData.nodes.children ?? [];
-      isPathSet.value.isLocal = newData.isLocal;
     }
   },
   { deep: true }

@@ -1,6 +1,6 @@
 <template>
   <div class="grid place-content-center w-full h-screen">
-    <div v-if="!isLocal">
+    <div v-if="!isAdmin">
       <h2 class="text-xl font-semibold text-white mb-4 text-center">
         Shared folder is not set
       </h2>
@@ -65,7 +65,7 @@
 import { ref } from "vue";
 
 const props = defineProps<{
-  isLocal: boolean;
+  isAdmin: boolean;
   isBeingAdjusted: boolean;
 }>();
 
