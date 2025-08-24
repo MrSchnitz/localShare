@@ -43,6 +43,28 @@
           <span>{{ currentTitle }}</span>
         </div>
 
+        <!-- Mobile Navigation Toggle -->
+        <div class="mobile-nav">
+          <button 
+            class="mobile-nav-btn"
+            :class="{ active: !showNotes }"
+            @click="goHome"
+            title="Files"
+          >
+            <i class="pi pi-home"></i>
+            <span class="nav-text">Files</span>
+          </button>
+          <button 
+            class="mobile-nav-btn"
+            :class="{ active: showNotes }"
+            @click="toggleNotes"
+            title="Notes"
+          >
+            <i class="pi pi-file-edit"></i>
+            <span class="nav-text">Notes</span>
+          </button>
+        </div>
+
         <div class="toolbar-spacer"></div>
 
         <div class="action-buttons">
@@ -95,9 +117,13 @@
         <div class="sidebar-section">
           <h3>Favorites</h3>
           <ul>
-            <li @click="$emit('navigate-to', 0)">
+            <li @click="goHome" :class="{ active: !showNotes }">
               <i class="pi pi-home"></i>
               <span>Home</span>
+            </li>
+            <li @click="toggleNotes" :class="{ active: showNotes }">
+              <i class="pi pi-file-edit"></i>
+              <span>Notes</span>
             </li>
           </ul>
         </div>
@@ -105,7 +131,8 @@
 
       <!-- Files Area -->
       <div class="finder-files">
-        <slot></slot>
+        <slot v-if="!showNotes"></slot>
+        <Notes v-if="showNotes" />
       </div>
     </div>
 
@@ -122,6 +149,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import Menu from "primevue/menu";
+import Notes from "./Notes.vue";
 
 const props = defineProps<{
   pathSegments: string[];
@@ -146,6 +174,7 @@ const emit = defineEmits<{
 const fileInput = ref<HTMLInputElement | null>(null);
 const menuButton = ref<HTMLButtonElement | null>(null);
 const menu = ref<any>(null);
+const showNotes = ref(false);
 
 const menuItems = ref([
   {
@@ -172,6 +201,15 @@ const handleFileInputChange = (event: Event) => {
   if (input.files?.length) {
     emit("upload-files", input.files, "");
   }
+};
+
+const toggleNotes = () => {
+  showNotes.value = !showNotes.value;
+};
+
+const goHome = () => {
+  showNotes.value = false;
+  emit("navigate-to", 0);
 };
 </script>
 
@@ -312,6 +350,58 @@ const handleFileInputChange = (event: Event) => {
   font-weight: 500;
 }
 
+/* Mobile Navigation */
+.mobile-nav {
+  display: none;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.mobile-nav-btn {
+  background: transparent;
+  border: none;
+  color: #999;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.mobile-nav-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mobile-nav-btn.active {
+  color: #fff;
+  background: rgba(0, 122, 255, 0.2);
+  border: 1px solid rgba(0, 122, 255, 0.3);
+}
+
+.nav-text {
+  font-size: 11px;
+}
+
+/* Show mobile nav only on mobile */
+@media (max-width: 768px) {
+  .mobile-nav {
+    display: flex;
+  }
+  
+  .toolbar-title {
+    font-size: 14px;
+  }
+}
+
 /* Mobile optimizations */
 @media (max-width: 640px) {
   .finder-toolbar {
@@ -332,6 +422,15 @@ const handleFileInputChange = (event: Event) => {
   .toolbar-btn {
     padding: 0 12px;
     height: 32px;
+  }
+  
+  .mobile-nav-btn {
+    padding: 10px 8px;
+    min-width: 50px;
+  }
+  
+  .nav-text {
+    font-size: 10px;
   }
 }
 
@@ -413,6 +512,11 @@ const handleFileInputChange = (event: Event) => {
 
 .sidebar-section li:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-section li.active {
+  background: rgba(0, 122, 255, 0.2);
+  border-left: 3px solid #007aff;
 }
 
 .hidden {
